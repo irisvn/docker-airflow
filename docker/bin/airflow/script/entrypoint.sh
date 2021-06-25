@@ -9,6 +9,7 @@ TRY_LOOP="20"
 
 # Global defaults and back-compat
 : "${AIRFLOW_HOME:="/usr/local/airflow"}"
+: "${DBT_DIR:="/usr/local/dbt"}"
 : "${AIRFLOW__CORE__FERNET_KEY:=${FERNET_KEY:=$(python -c "from cryptography.fernet import Fernet; FERNET_KEY = Fernet.generate_key().decode(); print(FERNET_KEY)")}}"
 : "${AIRFLOW__CORE__EXECUTOR:=${EXECUTOR:-Sequential}Executor}"
 
@@ -133,3 +134,29 @@ case "$1" in
     exec "$@"
     ;;
 esac
+
+# Setup DB Connection String
+#AIRFLOW__WEBSERVER__SECRET_KEY="openssl rand -hex 30"
+#export AIRFLOW__WEBSERVER__SECRET_KEY
+
+DBT_POSTGRESQL_CONN="postgresql+psycopg2://${DBT_POSTGRES_USER}:${DBT_POSTGRES_PASSWORD}@${DBT_POSTGRES_HOST}:${POSTGRES_PORT}/${DBT_POSTGRES_DB}"
+
+cd "${DBT_DIR}" && dbt compile
+#rm -f ${AIRFLOW_HOME}/airflow-webserver.pid
+
+sleep 10
+airflow db upgrade
+sleep 10
+airflow connections --add --conn_id 'dbt_postgres_instance_raw_data' --conn_uri "$DBT_POSTGRESQL_CONN"
+
+airflow users create --username admin --password admin --firstname admin --lastname admin --role Admin --email admin@cellphones.com.vn
+
+# Add mysql connection
+
+MYSQL_CONNECTION="mysql://$MYSQL_USER:$MYSQL_PASSWORD@$MYSQL_8_HOST/$MYSQL_DATABASE"
+airflow connections --add --conn_id 'dbt_mysql_instance_raw_data' --conn_uri "$MYSQL_CONNECTION"
+
+
+# Add mysql 5.6 connection
+MYSQL5_CONNECTION="mysql://$MYSQL_USER:$MYSQL_PASSWORD@$MYSQL_5_HOST/$MYSQL_DATABASE"
+airflow connections --add --conn_id 'dbt_mysql5_instance_raw_data' --conn_uri "$MYSQL5_CONNECTION"

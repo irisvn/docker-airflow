@@ -1,0 +1,157 @@
+version: '3'
+services:
+    redis:
+        image: redis:latest
+        container_name: 'data-redis'
+
+    postgres:
+        image: postgres:9.6
+        container_name: 'data-postgres'
+        environment:
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
+            PGDATA: /var/lib/postgresql/data/pgdata
+        volumes:
+            - ${POSTGRES_DIR}:/var/lib/postgresql/data/pgdata
+
+    mysql8:
+        image: mysql:8.0
+        platform: linux/x86_64
+        container_name: 'data-mysql8'
+        command: --default-authentication-plugin=mysql_native_password
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        volumes:
+            - ${MYSQL_8_DIR}:/var/lib/mysql
+
+    mysql5:
+        platform: linux/x86_64
+        image: mysql:5.6
+        container_name: 'data-mysql5'
+        command: [
+                '--wait_timeout=28800',
+                '--max_allowed_packet=32505856'
+        ]
+        environment:
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+        volumes:
+            - ${MYSQL_5_DIR}:/var/lib/mysql
+            - ./docker/config/mysql5:/etc/mysql/conf.d
+
+    webserver:
+        build: ./docker/bin/airflow/
+        container_name: 'data-webserver'
+        restart: always
+        depends_on:
+            - postgres
+            - redis
+        environment:
+            LOAD_EX: n
+            FERNET_KEY: 46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            EXECUTOR: Celery
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_8_HOST: ${MYSQL_8_HOST}
+            MYSQL_5_HOST: ${MYSQL_5_HOST}
+            ES_USER: ${ES_USER}
+            ES_USER_PASS: ${ES_USER_PASS}
+            ES_HOST: ${ES_HOST}
+            ES_PORT: ${ES_PORT}
+        volumes:
+            - ${AIRFLOW_DIR}:/usr/local/airflow
+            - ${AIRFLOW_DBT}:/usr/local/dbt
+        ports:
+            - ${WEBSERVER_PORT}:8080
+        command: webserver
+        healthcheck:
+            test: ["CMD-SHELL", "[ -f /usr/local/airflow/airflow-webserver.pid ]"]
+            interval: 30s
+            timeout: 30s
+            retries: 3
+
+    flower:
+        build: ./docker/bin/airflow/
+        container_name: 'data-flower'
+        restart: always
+        depends_on:
+            - redis
+        environment:
+            EXECUTOR: Celery
+        ports:
+            - ${FLOWER_PORT}:5555
+        command: flower
+
+    scheduler:
+        build: ./docker/bin/airflow/
+        container_name: 'data-scheduler'
+        restart: always
+        depends_on:
+            - webserver
+        volumes:
+            - ${AIRFLOW_DIR}:/usr/local/airflow
+            - ${AIRFLOW_DBT}:/usr/local/dbt
+        environment:
+            LOAD_EX: n
+            FERNET_KEY: 46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            EXECUTOR: Celery
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_8_HOST: ${MYSQL_8_HOST}
+            MYSQL_5_HOST: ${MYSQL_5_HOST}
+            ES_USER: ${ES_USER}
+            ES_USER_PASS: ${ES_USER_PASS}
+            ES_HOST: ${ES_HOST}
+            ES_PORT: ${ES_PORT}
+        command: scheduler
+
+    worker:
+        build: ./docker/bin/airflow/
+        container_name: 'data-worker'
+        restart: always
+        depends_on:
+            - scheduler
+        volumes:
+            - ${AIRFLOW_DIR}:/usr/local/airflow
+            - ${AIRFLOW_DBT}:/usr/local/dbt
+        environment:
+            LOAD_EX: n
+            FERNET_KEY: 46BKJoQYlPPOexq0OhDZnIlNepKFf87WFwLbfzqDDho=
+            EXECUTOR: Celery
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            POSTGRES_DB: ${POSTGRES_DB}
+            MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+            MYSQL_DATABASE: ${MYSQL_DATABASE}
+            MYSQL_USER: ${MYSQL_USER}
+            MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+            MYSQL_8_HOST: ${MYSQL_8_HOST}
+            MYSQL_5_HOST: ${MYSQL_5_HOST}
+            ES_USER: ${ES_USER}
+            ES_USER_PASS: ${ES_USER_PASS}
+            ES_HOST: ${ES_HOST}
+            ES_PORT: ${ES_PORT}
+        command: worker
+
+    adminer:
+        image: adminer
+        container_name: 'data-adminer'
+        restart: always
+        ports:
+            - ${ADMINER_PORT}:8080

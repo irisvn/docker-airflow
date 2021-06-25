@@ -1,10 +1,11 @@
-# VERSION 1.10.9
-# AUTHOR: Matthieu "Puckel_" Roisil
-# DESCRIPTION: Basic Airflow container
+# VERSION 1.10.15
+# AUTHOR: iRisVN
+# DESCRIPTION: Basic Airflow container + DBT + MySQL + ES
 # BUILD: docker build --rm -t puckel/docker-airflow .
+# FORK: https://github.com/puckel/docker-airflow
 # SOURCE: https://github.com/puckel/docker-airflow
 
-FROM python:3.7-slim-buster
+FROM python:3.8
 LABEL maintainer="Puckel_"
 
 # Never prompt the user for choices on installation/configuration of packages
@@ -12,7 +13,7 @@ ENV DEBIAN_FRONTEND noninteractive
 ENV TERM linux
 
 # Airflow
-ARG AIRFLOW_VERSION=1.10.9
+ARG AIRFLOW_VERSION=1.10.15
 ARG AIRFLOW_USER_HOME=/usr/local/airflow
 ARG AIRFLOW_DEPS=""
 ARG PYTHON_DEPS=""
@@ -54,14 +55,24 @@ RUN set -ex \
     && locale-gen \
     && update-locale LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 \
     && useradd -ms /bin/bash -d ${AIRFLOW_USER_HOME} airflow \
-    && pip install -U pip setuptools wheel \
-    && pip install pytz \
-    && pip install pyOpenSSL \
-    && pip install ndg-httpsclient \
-    && pip install pyasn1 \
-    && pip install apache-airflow[crypto,celery,postgres,hive,jdbc,mysql,ssh${AIRFLOW_DEPS:+,}${AIRFLOW_DEPS}]==${AIRFLOW_VERSION} \
-    && pip install 'redis==3.2' \
-    && if [ -n "${PYTHON_DEPS}" ]; then pip install ${PYTHON_DEPS}; fi \
+#    && pip3 install -U pip setuptools wheel \
+#    && pip3 install JPype1 \
+#    && pip3 install pytz \
+    && pip3 install pyOpenSSL \
+#    && pip3 install ndg-httpsclient \
+#    && pip3 install pyasn1 \
+    && pip3 install apache-airflow[crypto,celery,postgres,mysql,ssh${AIRFLOW_DEPS:+,}${AIRFLOW_DEPS}]==${AIRFLOW_VERSION} \
+    && pip3 install dbt \
+    && pip3 install flask-bcrypt --user \
+    && pip3 install SQLAlchemy==1.3.23 \
+    && pip3 install Flask-SQLAlchemy==2.4.4 \
+    && pip3 install dbt-mysql \
+    && pip3 install elasticsearch \
+    && pip3 install mysqlclient \
+    && pip3 install carry \
+    && pip3 install pymysql \
+    && pip3 install redis \
+    && if [ -n "${PYTHON_DEPS}" ]; then pip3 install ${PYTHON_DEPS}; fi \
     && apt-get purge --auto-remove -yqq $buildDeps \
     && apt-get autoremove -yqq --purge \
     && apt-get clean \
